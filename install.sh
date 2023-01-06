@@ -159,7 +159,7 @@ fi
   check=$(pm2 --version)
   if [ "$check" == "" ]; then
     "echo" "-e" "Installing PM2"
-    npm install pm2 -g
+    npm install pm2 -g && pm2 install pm2-logrotate
     pm2 startup  
 fi
   mkdir -p $installPath
@@ -176,8 +176,8 @@ else
 fi
   check=$(docker info)
   if [[ "$check" == *"Is the docker daemon running"* ]]; then
-      echo "Error: docker is not running"
-      exit 1
+      "echo" "Error: docker is not running"
+      "exit" "1"
     fi
   if [ "$3" != "" ]; then
     port="$3"

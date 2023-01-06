@@ -1,28 +1,40 @@
-const { setSetting } = require("./util-server");
+const { setSetting, setting } = require("./util-server");
 const axios = require("axios");
-const { isDev } = require("../src/util");
+const compareVersions = require("compare-versions");
 
 exports.version = require("../package.json").version;
 exports.latestVersion = null;
 
 let interval;
 
+/** Start 48 hour check interval */
 exports.startInterval = () => {
     let check = async () => {
         try {
-            const res = await axios.get("https://raw.githubusercontent.com/louislam/uptime-kuma/master/package.json");
-
-            if (typeof res.data === "string") {
-                res.data = JSON.parse(res.data);
-            }
+            const res = await axios.get("https://uptime.kuma.pet/version");
 
             // For debug
             if (process.env.TEST_CHECK_VERSION === "1") {
-                res.data.version = "1000.0.0"
+                res.data.slow = "1000.0.0";
             }
 
-            exports.latestVersion = res.data.version;
-            console.log("Latest Version: " + exports.latestVersion);
+            if (await setting("checkUpdate") === false) {
+                return;
+            }
+
+            let checkBeta = await setting("checkBeta");
+
+            if (checkBeta && res.data.beta) {
+                if (compareVersions.compare(res.data.beta, res.data.slow, ">")) {
+                    exports.latestVersion = res.data.beta;
+                    return;
+                }
+            }
+
+            if (res.data.slow) {
+                exports.latestVersion = res.data.slow;
+            }
+
         } catch (_) { }
 
     };
@@ -31,6 +43,11 @@ exports.startInterval = () => {
     interval = setInterval(check, 3600 * 1000 * 48);
 };
 
+/**
+ * Enable the check update feature
+ * @param {boolean} value Should the check update feature be enabled?
+ * @returns {Promise<void>}
+ */
 exports.enableCheckUpdate = async (value) => {
     await setSetting("checkUpdate", value);
 

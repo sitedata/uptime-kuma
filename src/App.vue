@@ -3,5 +3,10 @@
 </template>
 
 <script>
-export default {}
+import { setPageLocale } from "./util-frontend";
+export default {
+    created() {
+        setPageLocale();
+    },
+};
 </script>

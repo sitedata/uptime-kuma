@@ -5,7 +5,7 @@
                 v-for="(beat, index) in shortBeatList"
                 :key="index"
                 class="beat"
-                :class="{ 'empty' : (beat === 0), 'down' : (beat.status === 0), 'pending' : (beat.status === 2) }"
+                :class="{ 'empty' : (beat === 0), 'down' : (beat.status === 0), 'pending' : (beat.status === 2), 'maintenance' : (beat.status === 3) }"
                 :style="beatStyle"
                 :title="getBeatTitle(beat)"
             />
@@ -17,29 +17,43 @@
 
 export default {
     props: {
+        /** Size of the heartbeat bar */
         size: {
             type: String,
             default: "big",
         },
+        /** ID of the monitor */
         monitorId: {
             type: Number,
             required: true,
         },
+        /** Array of the monitors heartbeats */
+        heartbeatList: {
+            type: Array,
+            default: null,
+        }
     },
     data() {
         return {
             beatWidth: 10,
             beatHeight: 30,
             hoverScale: 1.5,
-            beatMargin: 3,      // Odd number only, even = blurry
+            beatMargin: 4,
             move: false,
             maxBeat: -1,
-        }
+        };
     },
     computed: {
 
+        /**
+         * If heartbeatList is null, get it from $root.heartbeatList
+         */
         beatList() {
-            return this.$root.heartbeatList[this.monitorId]
+            if (this.heartbeatList === null) {
+                return this.$root.heartbeatList[this.monitorId];
+            } else {
+                return this.heartbeatList;
+            }
         },
 
         shortBeatList() {
@@ -58,12 +72,12 @@ export default {
             if (start < 0) {
                 // Add empty placeholder
                 for (let i = start; i < 0; i++) {
-                    placeholders.push(0)
+                    placeholders.push(0);
                 }
                 start = 0;
             }
 
-            return placeholders.concat(this.beatList.slice(start))
+            return placeholders.concat(this.beatList.slice(start));
         },
 
         wrapStyle() {
@@ -73,7 +87,7 @@ export default {
             return {
                 padding: `${topBottom}px ${leftRight}px`,
                 width: "100%",
-            }
+            };
         },
 
         barStyle() {
@@ -83,12 +97,12 @@ export default {
                 return {
                     transition: "all ease-in-out 0.25s",
                     transform: `translateX(${width}px)`,
-                }
+                };
 
             }
             return {
                 transform: "translateX(0)",
-            }
+            };
 
         },
 
@@ -98,7 +112,7 @@ export default {
                 height: this.beatHeight + "px",
                 margin: this.beatMargin + "px",
                 "--hover-scale": this.hoverScale,
-            }
+            };
         },
 
     },
@@ -109,7 +123,7 @@ export default {
 
                 setTimeout(() => {
                     this.move = false;
-                }, 300)
+                }, 300);
             },
             deep: true,
         },
@@ -118,32 +132,56 @@ export default {
         window.removeEventListener("resize", this.resize);
     },
     beforeMount() {
-        if (! (this.monitorId in this.$root.heartbeatList)) {
-            this.$root.heartbeatList[this.monitorId] = [];
+        if (this.heartbeatList === null) {
+            if (! (this.monitorId in this.$root.heartbeatList)) {
+                this.$root.heartbeatList[this.monitorId] = [];
+            }
         }
     },
+
     mounted() {
         if (this.size === "small") {
-            this.beatWidth = 5.6;
-            this.beatMargin = 2.4;
-            this.beatHeight = 16
+            this.beatWidth = 5;
+            this.beatHeight = 16;
+            this.beatMargin = 2;
+        }
+
+        // Suddenly, have an idea how to handle it universally.
+        // If the pixel * ratio != Integer, then it causes render issue, round it to solve it!!
+        const actualWidth = this.beatWidth * window.devicePixelRatio;
+        const actualMargin = this.beatMargin * window.devicePixelRatio;
+
+        if (! Number.isInteger(actualWidth)) {
+            this.beatWidth = Math.round(actualWidth) / window.devicePixelRatio;
+        }
+
+        if (! Number.isInteger(actualMargin)) {
+            this.beatMargin = Math.round(actualMargin) / window.devicePixelRatio;
         }
 
         window.addEventListener("resize", this.resize);
         this.resize();
     },
     methods: {
+        /** Resize the heartbeat bar */
         resize() {
             if (this.$refs.wrap) {
-                this.maxBeat = Math.floor(this.$refs.wrap.clientWidth / (this.beatWidth + this.beatMargin * 2))
+                this.maxBeat = Math.floor(this.$refs.wrap.clientWidth / (this.beatWidth + this.beatMargin * 2));
             }
         },
 
+        /**
+         * Get the title of the beat.
+         * Used as the hover tooltip on the heartbeat bar.
+         * @param {Object} beat Beat to get title from
+         * @returns {string}
+         */
         getBeatTitle(beat) {
-            return `${this.$root.datetime(beat.time)} - ${beat.msg}`;
-        }
+            return `${this.$root.datetime(beat.time)}` + ((beat.msg) ? ` - ${beat.msg}` : "");
+        },
+
     },
-}
+};
 </script>
 
 <style lang="scss" scoped>
@@ -159,7 +197,7 @@ export default {
     .beat {
         display: inline-block;
         background-color: $primary;
-        border-radius: 50rem;
+        border-radius: $border-radius;
 
         &.empty {
             background-color: aliceblue;
@@ -171,6 +209,10 @@ export default {
 
         &.pending {
             background-color: $warning;
+        }
+
+        &.maintenance {
+            background-color: $maintenance;
         }
 
         &:not(.empty):hover {

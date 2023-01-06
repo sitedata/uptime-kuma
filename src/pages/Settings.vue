@@ -1,317 +1,283 @@
 <template>
-    <transition name="slide-fade" appear>
-        <div>
-            <h1 v-show="show" class="mb-3">
-                {{ $t("Settings") }}
-            </h1>
+    <div>
+        <div v-if="$root.isMobile" class="shadow-box mb-3">
+            <router-link to="/manage-status-page" class="nav-link">
+                <font-awesome-icon icon="stream" /> {{ $t("Status Pages") }}
+            </router-link>
+            <router-link to="/maintenance" class="nav-link">
+                <font-awesome-icon icon="wrench" /> {{ $t("Maintenance") }}
+            </router-link>
+        </div>
 
-            <div class="shadow-box">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h2 class="mb-2">{{ $t("Appearance") }}</h2>
+        <h1 v-show="show" class="mb-3">
+            {{ $t("Settings") }}
+        </h1>
 
-                        <div class="mb-3">
-                            <label for="language" class="form-label">{{ $t("Language") }}</label>
-                            <select id="language" v-model="$i18n.locale" class="form-select">
-                                <option v-for="(lang, i) in $i18n.availableLocales" :key="`Lang${i}`" :value="lang">
-                                    {{ $i18n.messages[lang].languageName }}
-                                </option>
-                            </select>
+        <div class="shadow-box shadow-box-settings">
+            <div class="row">
+                <div v-if="showSubMenu" class="settings-menu col-lg-3 col-md-5">
+                    <router-link
+                        v-for="(item, key) in subMenus"
+                        :key="key"
+                        :to="`/settings/${key}`"
+                    >
+                        <div class="menu-item">
+                            {{ item.title }}
                         </div>
+                    </router-link>
 
-                        <div class="mb-3">
-                            <label for="timezone" class="form-label">{{ $t("Theme") }}</label>
-
-                            <div>
-                                <div class="btn-group" role="group" aria-label="Basic checkbox toggle button group">
-                                    <input id="btncheck1" v-model="$root.userTheme" type="radio" class="btn-check" name="theme" autocomplete="off" value="light">
-                                    <label class="btn btn-outline-primary" for="btncheck1">{{ $t("Light") }}</label>
-
-                                    <input id="btncheck2" v-model="$root.userTheme" type="radio" class="btn-check" name="theme" autocomplete="off" value="dark">
-                                    <label class="btn btn-outline-primary" for="btncheck2">{{ $t("Dark") }}</label>
-
-                                    <input id="btncheck3" v-model="$root.userTheme" type="radio" class="btn-check" name="theme" autocomplete="off" value="auto">
-                                    <label class="btn btn-outline-primary" for="btncheck3">{{ $t("Auto") }}</label>
-                                </div>
-                            </div>
+                    <!-- Logout Button -->
+                    <a v-if="$root.isMobile && $root.loggedIn && $root.socket.token !== 'autoLogin'" class="logout" @click.prevent="$root.logout">
+                        <div class="menu-item">
+                            <font-awesome-icon icon="sign-out-alt" />
+                            {{ $t("Logout") }}
                         </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">{{ $t("Theme - Heartbeat Bar") }}</label>
-                            <div>
-                                <div class="btn-group" role="group" aria-label="Basic checkbox toggle button group">
-                                    <input id="btncheck4" v-model="$root.userHeartbeatBar" type="radio" class="btn-check" name="heartbeatBarTheme" autocomplete="off" value="normal">
-                                    <label class="btn btn-outline-primary" for="btncheck4">{{ $t("Normal") }}</label>
-
-                                    <input id="btncheck5" v-model="$root.userHeartbeatBar" type="radio" class="btn-check" name="heartbeatBarTheme" autocomplete="off" value="bottom">
-                                    <label class="btn btn-outline-primary" for="btncheck5">{{ $t("Bottom") }}</label>
-
-                                    <input id="btncheck6" v-model="$root.userHeartbeatBar" type="radio" class="btn-check" name="heartbeatBarTheme" autocomplete="off" value="none">
-                                    <label class="btn btn-outline-primary" for="btncheck6">{{ $t("None") }}</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <h2 class="mt-5 mb-2">{{ $t("General") }}</h2>
-                        <form class="mb-3" @submit.prevent="saveGeneral">
-                            <div class="mb-3">
-                                <label for="timezone" class="form-label">{{ $t("Timezone") }}</label>
-                                <select id="timezone" v-model="$root.userTimezone" class="form-select">
-                                    <option value="auto">
-                                        {{ $t("Auto") }}: {{ guessTimezone }}
-                                    </option>
-                                    <option v-for="(timezone, index) in timezoneList" :key="index" :value="timezone.value">
-                                        {{ timezone.name }}
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">{{ $t("Search Engine Visibility") }}</label>
-
-                                <div class="form-check">
-                                    <input id="searchEngineIndexYes" v-model="settings.searchEngineIndex" class="form-check-input" type="radio" name="flexRadioDefault" :value="true" required>
-                                    <label class="form-check-label" for="searchEngineIndexYes">
-                                        {{ $t("Allow indexing") }}
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input id="searchEngineIndexNo" v-model="settings.searchEngineIndex" class="form-check-input" type="radio" name="flexRadioDefault" :value="false" required>
-                                    <label class="form-check-label" for="searchEngineIndexNo">
-                                        {{ $t("Discourage search engines from indexing site") }}
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div>
-                                <button class="btn btn-primary" type="submit">
-                                    {{ $t("Save") }}
-                                </button>
-                            </div>
-                        </form>
-
-                        <template v-if="loaded">
-                            <template v-if="! settings.disableAuth">
-                                <h2 class="mt-5 mb-2">{{ $t("Change Password") }}</h2>
-                                <form class="mb-3" @submit.prevent="savePassword">
-                                    <div class="mb-3">
-                                        <label for="current-password" class="form-label">{{ $t("Current Password") }}</label>
-                                        <input id="current-password" v-model="password.currentPassword" type="password" class="form-control" required>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label for="new-password" class="form-label">{{ $t("New Password") }}</label>
-                                        <input id="new-password" v-model="password.newPassword" type="password" class="form-control" required>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label for="repeat-new-password" class="form-label">{{ $t("Repeat New Password") }}</label>
-                                        <input id="repeat-new-password" v-model="password.repeatNewPassword" type="password" class="form-control" :class="{ 'is-invalid' : invalidPassword }" required>
-                                        <div class="invalid-feedback">
-                                            {{ $t("passwordNotMatchMsg") }}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <button class="btn btn-primary" type="submit">
-                                            {{ $t("Update Password") }}
-                                        </button>
-                                    </div>
-                                </form>
-                            </template>
-
-                            <h2 class="mt-5 mb-2">{{ $t("Advanced") }}</h2>
-
-                            <div class="mb-3">
-                                <button v-if="settings.disableAuth" class="btn btn-outline-primary me-1" @click="enableAuth">{{ $t("Enable Auth") }}</button>
-                                <button v-if="! settings.disableAuth" class="btn btn-primary me-1" @click="confirmDisableAuth">{{ $t("Disable Auth") }}</button>
-                                <button v-if="! settings.disableAuth" class="btn btn-danger me-1" @click="$root.logout">{{ $t("Logout") }}</button>
-                            </div>
-                        </template>
+                    </a>
+                </div>
+                <div class="settings-content col-lg-9 col-md-7">
+                    <div v-if="currentPage" class="settings-content-header">
+                        {{ subMenus[currentPage].title }}
                     </div>
-
-                    <div class="notification-list col-md-6">
-                        <div v-if="$root.isMobile" class="mt-3" />
-
-                        <h2>{{ $t("Notifications") }}</h2>
-                        <p v-if="$root.notificationList.length === 0">
-                            {{ $t("Not available, please setup.") }}
-                        </p>
-                        <p v-else>
-                            {{ $t("notificationDescription") }}
-                        </p>
-
-                        <ul class="list-group mb-3" style="border-radius: 1rem;">
-                            <li v-for="(notification, index) in $root.notificationList" :key="index" class="list-group-item">
-                                {{ notification.name }}<br>
-                                <a href="#" @click="$refs.notificationDialog.show(notification.id)">{{ $t("Edit") }}</a>
-                            </li>
-                        </ul>
-
-                        <button class="btn btn-primary me-2" type="button" @click="$refs.notificationDialog.show()">
-                            {{ $t("Setup Notification") }}
-                        </button>
+                    <div class="mx-3">
+                        <router-view v-slot="{ Component }">
+                            <transition name="slide-fade" appear>
+                                <component :is="Component" />
+                            </transition>
+                        </router-view>
                     </div>
                 </div>
             </div>
-
-            <NotificationDialog ref="notificationDialog" />
-
-            <Confirm ref="confirmDisableAuth" btn-style="btn-danger" :yes-text="$t('I understand, please disable')" :no-text="$t('Leave')" @yes="disableAuth">
-                <template v-if="$i18n.locale === 'en' ">
-                    <p>Are you sure want to <strong>disable auth</strong>?</p>
-                    <p>It is for <strong>someone who have 3rd-party auth</strong> in front of Uptime Kuma such as Cloudflare Access.</p>
-                    <p>Please use it carefully.</p>
-                </template>
-
-                <template v-if="$i18n.locale === 'zh-HK' ">
-                    <p>你是否確認<strong>取消登入認証</strong>？</p>
-                    <p>這個功能是設計給已有<strong>第三方認証</strong>的用家，例如 Cloudflare Access。</p>
-                    <p>請小心使用。</p>
-                </template>
-
-                <template v-if="$i18n.locale === 'de-DE' ">
-                    <p>Bist du sicher das du die <strong>Authentifizierung deaktivieren</strong> möchtest?</p>
-                    <p>Es ist für <strong>jemanden der eine externe Authentifizierung</strong> vor Uptime Kuma geschaltet hat, wie z.B. Cloudflare Access.</p>
-                    <p>Bitte mit Vorsicht nutzen.</p>
-                </template>
-            </Confirm>
         </div>
-    </transition>
+    </div>
 </template>
 
 <script>
-import Confirm from "../components/Confirm.vue";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc"
-import timezone from "dayjs/plugin/timezone"
-import NotificationDialog from "../components/NotificationDialog.vue";
-dayjs.extend(utc)
-dayjs.extend(timezone)
-
-import { timezoneList } from "../util-frontend";
-import { useToast } from "vue-toastification"
-const toast = useToast()
+import { useRoute } from "vue-router";
 
 export default {
-    components: {
-        NotificationDialog,
-        Confirm,
-    },
     data() {
         return {
-            timezoneList: timezoneList(),
-            guessTimezone: dayjs.tz.guess(),
             show: true,
-            invalidPassword: false,
-            password: {
-                currentPassword: "",
-                newPassword: "",
-                repeatNewPassword: "",
-            },
-            settings: {
-
-            },
-            loaded: false,
-        }
+            settings: {},
+            settingsLoaded: false,
+        };
     },
-    watch: {
-        "password.repeatNewPassword"() {
-            this.invalidPassword = false;
+
+    computed: {
+        currentPage() {
+            let pathSplit = useRoute().path.split("/");
+            let pathEnd = pathSplit[pathSplit.length - 1];
+            if (!pathEnd || pathEnd === "settings") {
+                return null;
+            }
+            return pathEnd;
         },
 
-        "$i18n.locale"() {
-            localStorage.locale = this.$i18n.locale;
+        showSubMenu() {
+            if (this.$root.isMobile) {
+                return !this.currentPage;
+            } else {
+                return true;
+            }
         },
+
+        subMenus() {
+            return {
+                general: {
+                    title: this.$t("General"),
+                },
+                appearance: {
+                    title: this.$t("Appearance"),
+                },
+                notifications: {
+                    title: this.$t("Notifications"),
+                },
+                "reverse-proxy": {
+                    title: this.$t("Reverse Proxy"),
+                },
+                "monitor-history": {
+                    title: this.$t("Monitor History"),
+                },
+                "docker-hosts": {
+                    title: this.$t("Docker Hosts"),
+                },
+                security: {
+                    title: this.$t("Security"),
+                },
+                proxies: {
+                    title: this.$t("Proxies"),
+                },
+                backup: {
+                    title: this.$t("Backup"),
+                },
+                about: {
+                    title: this.$t("About"),
+                },
+            };
+        },
+    },
+
+    watch: {
+        "$root.isMobile"() {
+            this.loadGeneralPage();
+        }
     },
 
     mounted() {
         this.loadSettings();
+        this.loadGeneralPage();
     },
 
     methods: {
 
-        saveGeneral() {
-            localStorage.timezone = this.$root.userTimezone;
-            this.saveSettings();
-        },
-
-        savePassword() {
-            if (this.password.newPassword !== this.password.repeatNewPassword) {
-                this.invalidPassword = true;
-            } else {
-                this.$root.getSocket().emit("changePassword", this.password, (res) => {
-                    this.$root.toastRes(res)
-                    if (res.ok) {
-                        this.password.currentPassword = ""
-                        this.password.newPassword = ""
-                        this.password.repeatNewPassword = ""
-                    }
-                })
+        /**
+         * Load the general settings page
+         * For desktop only, on mobile do nothing
+         */
+        loadGeneralPage() {
+            if (!this.currentPage && !this.$root.isMobile) {
+                this.$router.push("/settings/general");
             }
         },
 
+        /** Load settings from server */
         loadSettings() {
             this.$root.getSocket().emit("getSettings", (res) => {
                 this.settings = res.data;
+
+                if (this.settings.checkUpdate === undefined) {
+                    this.settings.checkUpdate = true;
+                }
 
                 if (this.settings.searchEngineIndex === undefined) {
                     this.settings.searchEngineIndex = false;
                 }
 
-                this.loaded = true;
-            })
+                if (this.settings.entryPage === undefined) {
+                    this.settings.entryPage = "dashboard";
+                }
+
+                if (this.settings.dnsCache === undefined) {
+                    this.settings.dnsCache = false;
+                }
+
+                if (this.settings.keepDataPeriodDays === undefined) {
+                    this.settings.keepDataPeriodDays = 180;
+                }
+
+                if (this.settings.tlsExpiryNotifyDays === undefined) {
+                    this.settings.tlsExpiryNotifyDays = [ 7, 14, 21 ];
+                }
+
+                if (this.settings.trustProxy === undefined) {
+                    this.settings.trustProxy = false;
+                }
+
+                this.settingsLoaded = true;
+            });
         },
 
-        saveSettings() {
-            this.$root.getSocket().emit("setSettings", this.settings, (res) => {
+        /**
+         * Callback for saving settings
+         * @callback saveSettingsCB
+         * @param {Object} res Result of operation
+         */
+
+        /**
+         * Save Settings
+         * @param {saveSettingsCB} [callback]
+         * @param {string} [currentPassword] Only need for disableAuth to true
+         */
+        saveSettings(callback, currentPassword) {
+            this.$root.getSocket().emit("setSettings", this.settings, currentPassword, (res) => {
                 this.$root.toastRes(res);
                 this.loadSettings();
-            })
-        },
 
-        confirmDisableAuth() {
-            this.$refs.confirmDisableAuth.show();
+                if (callback) {
+                    callback();
+                }
+            });
         },
-
-        disableAuth() {
-            this.settings.disableAuth = true;
-            this.saveSettings();
-        },
-
-        enableAuth() {
-            this.settings.disableAuth = false;
-            this.saveSettings();
-            this.$root.storage().removeItem("token");
-        },
-
-    },
-}
+    }
+};
 </script>
 
 <style lang="scss" scoped>
 @import "../assets/vars.scss";
 
-.shadow-box {
+.shadow-box-settings {
     padding: 20px;
+    min-height: calc(100vh - 155px);
 }
 
-.btn-check:active + .btn-outline-primary,
-.btn-check:checked + .btn-outline-primary,
-.btn-check:hover + .btn-outline-primary {
-    color: #fff;
+footer {
+    color: #aaa;
+    font-size: 13px;
+    margin-top: 20px;
+    padding-bottom: 30px;
+    text-align: center;
 }
 
-.dark {
-    .list-group-item {
-        background-color: $dark-bg2;
-        color: $dark-font-color;
+.settings-menu {
+    a {
+        text-decoration: none !important;
     }
 
-    .btn-check:active + .btn-outline-primary,
-    .btn-check:checked + .btn-outline-primary,
-    .btn-check:hover + .btn-outline-primary {
-        color: #000;
+    .menu-item {
+        border-radius: 10px;
+        margin: 0.5em;
+        padding: 0.7em 1em;
+        cursor: pointer;
+        border-left-width: 0;
+        transition: all ease-in-out 0.1s;
     }
+
+    .menu-item:hover {
+        background: $highlight-white;
+
+        .dark & {
+            background: $dark-header-bg;
+        }
+    }
+
+    .active .menu-item {
+        background: $highlight-white;
+        border-left: 4px solid $primary;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+
+        .dark & {
+            background: $dark-header-bg;
+        }
+    }
+}
+
+.settings-content {
+    .settings-content-header {
+        width: calc(100% + 20px);
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 0 10px 0 0;
+        margin-top: -20px;
+        margin-right: -20px;
+        padding: 12.5px 1em;
+        font-size: 26px;
+
+        .dark & {
+            background: $dark-header-bg;
+            border-bottom: 0;
+        }
+
+        .mobile & {
+            padding: 15px 0 0 0;
+
+            .dark & {
+                background-color: transparent;
+            }
+        }
+    }
+}
+
+.logout {
+    color: $danger !important;
 }
 </style>
